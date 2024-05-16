@@ -37,8 +37,10 @@ class ServidorUnitTest {
 	void test01() {
 		try (Socket socket = new Socket("localhost", 9000)){
 			socket.setSoTimeout(10000);
-			assertEquals("ERROR:Read timed out", new DataInputStream(socket.getInputStream()).readUTF());
+			String respuesta = new DataInputStream(socket.getInputStream()).readUTF();
+			assertEquals("ERROR:Read timed out", respuesta);
 		} catch (IOException e) {
+			e.printStackTrace();
 			fail(e.getLocalizedMessage());
 		}
 	}
