@@ -1,13 +1,19 @@
 package dam.psp.ex20230315;
 
+import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.UTFDataFormatException;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.security.KeyStoreException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.util.Base64;
 
 public class Peticion implements Runnable {
@@ -33,7 +39,7 @@ public class Peticion implements Runnable {
 				peticionHash();
 				break;
 			case "cert":
-
+				peticionCert();
 				break;
 			case "cifrar":
 
@@ -46,12 +52,7 @@ public class Peticion implements Runnable {
 		} catch (EOFException e) {
 			enviarRespuesta("ERROR:Se esperaba una petición");
 		} catch (IOException e) {
-			e.printStackTrace();
-			try {
-				socket.close();
-			} catch (IOException e1) {
-				e1.printStackTrace();
-			}
+			enviarRespuesta("ERROR:" + e.getLocalizedMessage());
 		}
 	}
 
@@ -80,7 +81,7 @@ public class Peticion implements Runnable {
 //		} catch (EOFException | NoSuchAlgorithmException e) {
 //			enviarRespuesta("ERROR:Se esperaba un algoritmo");
 //		} catch (IOException e) {
-//			e.printStackTrace();
+//			enviarRespuesta("ERROR:" + e.getLocalizedMessage());
 //		} 
 //	}
 	
@@ -104,8 +105,34 @@ public class Peticion implements Runnable {
 		} catch (EOFException | NoSuchAlgorithmException e) {
 			enviarRespuesta("ERROR:Se esperaba un algoritmo");
 		} catch (IOException e) {
-			e.printStackTrace();
+			enviarRespuesta("ERROR:" + e.getLocalizedMessage());
 		} 
+	}
+	
+	private void peticionCert() {
+		try {
+			String alias = in.readUTF();
+			try {
+				String certB64 = in.readUTF(); 
+				byte [] certEncoded = Base64.getDecoder().decode(certB64);
+				CertificateFactory cf = CertificateFactory.getInstance("X.509");
+				Certificate cert = cf.generateCertificate(new ByteArrayInputStream(certEncoded));
+				Servidor.ks.setCertificateEntry(alias, cert);
+				enviarRespuesta("OK:" +
+						Base64.getEncoder().encodeToString(
+								MessageDigest.getInstance("SHA-256").digest(certB64.getBytes())));
+			} catch (EOFException | UTFDataFormatException | SocketTimeoutException e) {
+				enviarRespuesta("ERROR:Se esperaba un certificado");
+			} catch (IllegalArgumentException e) {
+				enviarRespuesta("ERROR:Se esperaba Base64");
+			} catch (CertificateException | KeyStoreException | NoSuchAlgorithmException e) {
+				enviarRespuesta("ERROR:" + e.getLocalizedMessage());
+			} 
+		} catch (EOFException | UTFDataFormatException | SocketTimeoutException e) {
+			enviarRespuesta("ERROR:Se esperaba un alias");
+		} catch (IOException e) {
+			enviarRespuesta("ERROR:" + e.getLocalizedMessage());
+		}
 	}
 
 }

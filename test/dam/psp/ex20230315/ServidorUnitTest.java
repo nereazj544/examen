@@ -221,7 +221,7 @@ class ServidorUnitTest {
 			DataOutputStream out = new DataOutputStream(socket.getOutputStream());
 			out.writeUTF("cert");
 			
-			assertEquals("ERROR:Read timed out", new DataInputStream(socket.getInputStream()).readUTF());
+			assertEquals("ERROR:Se esperaba un alias", new DataInputStream(socket.getInputStream()).readUTF());
 		} catch (IOException e) {
 			fail(e.getLocalizedMessage());
 		}
@@ -253,7 +253,7 @@ class ServidorUnitTest {
 			out.writeUTF("cert");
 			out.writeUTF("psp");
 			
-			assertEquals("ERROR:Read timed out", new DataInputStream(socket.getInputStream()).readUTF());
+			assertEquals("ERROR:Se esperaba un certificado", new DataInputStream(socket.getInputStream()).readUTF());
 		} catch (IOException e) {
 			fail(e.getLocalizedMessage());
 		}
