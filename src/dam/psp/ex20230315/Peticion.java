@@ -11,10 +11,13 @@ import java.net.SocketTimeoutException;
 import java.security.KeyStoreException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.util.Base64;
+
+import javax.crypto.Cipher;
 
 public class Peticion implements Runnable {
 
@@ -42,7 +45,7 @@ public class Peticion implements Runnable {
 				peticionCert();
 				break;
 			case "cifrar":
-
+				peticionCifrar();
 				break;
 			default:
 				enviarRespuesta(String.format("ERROR:'%s' no se reconoce como una petición válida", peticion));
@@ -135,4 +138,37 @@ public class Peticion implements Runnable {
 		}
 	}
 
+	private void peticionCifrar() {
+		try {
+			String alias = in.readUTF();
+			try {
+				Certificate cert = Servidor.ks.getCertificate(alias);
+				if (cert != null) {
+					PublicKey key = cert.getPublicKey();
+					if (key.getAlgorithm().equals("RSA")) {
+						cifrar(key);
+					}
+					else
+						enviarRespuesta(String.format("ERROR:'%s' no contiene una clave RSA", alias));
+				}
+				else
+					enviarRespuesta(String.format("ERROR:'%s' no es un certificado", alias));
+			} catch (KeyStoreException e) {
+				enviarRespuesta("ERROR:" + e.getLocalizedMessage());
+			}
+		} catch (SocketTimeoutException e) {
+			enviarRespuesta("ERROR:Read timed out");
+		} catch (EOFException e) {
+			enviarRespuesta("ERROR:Se esperaba un alias");
+		} catch (UTFDataFormatException e) {
+			enviarRespuesta("ERROR:formato alias incorrecto");
+		} catch (IOException e) {
+			enviarRespuesta("ERROR:" + e.getLocalizedMessage());
+		}
+	}
+	
+	private void cifrar(PublicKey key) {
+		
+	}
+	
 }
