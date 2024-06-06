@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.UTFDataFormatException;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.security.InvalidKeyException;
 import java.security.KeyStoreException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -17,7 +18,10 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.util.Base64;
 
+import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 
 public class Peticion implements Runnable {
 
@@ -168,7 +172,28 @@ public class Peticion implements Runnable {
 	}
 	
 	private void cifrar(PublicKey key) {
-		
+		try {
+			Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+			cipher.init(Cipher.ENCRYPT_MODE, key);
+			byte [] buffer = new byte[256];
+			int n;
+			int total = 0;
+			while ((n = in.read(buffer)) != -1) {
+				total += n;
+				byte [] cifrado = cipher.doFinal(buffer, 0, n);
+				String b64 = Base64.getEncoder().encodeToString(cifrado);
+				out.writeUTF("OK:" + b64);
+			}
+			if (total > 0)
+				enviarRespuesta("FIN:CIFRADO");
+			else
+				enviarRespuesta("ERROR:Se esperaban datos");
+		} catch (SocketTimeoutException e) {
+			enviarRespuesta("ERROR:Read timed out");
+		} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException |
+				 IOException | IllegalBlockSizeException | BadPaddingException e) {
+			enviarRespuesta("ERROR:" + e.getLocalizedMessage());
+		}
 	}
 	
 }

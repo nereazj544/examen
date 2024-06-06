@@ -8,12 +8,22 @@ import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.security.InvalidKeyException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateEncodingException;
+import java.util.Arrays;
 import java.util.Base64;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -296,7 +306,57 @@ class ServidorUnitTest {
 	@Test
 	@DisplayName("(3 puntos) Petición \"cifrar\"")
 	void test17() {
-		fail("Not yet implemented");
+		try (Socket socket = new Socket("localhost", 9000)) {
+			socket.setSoTimeout(10000);
+			String texto = "En un lugar de la Mancha, de cuyo nombre no quiero acordarme, no ha mucho\r\n"
+					+ "tiempo que vivía un hidalgo de los de lanza en astillero, adarga antigua,\r\n"
+					+ "rocín flaco y galgo corredor. Una olla de algo más vaca que carnero,\r\n"
+					+ "salpicón las más noches, duelos y quebrantos los sábados, lantejas los\r\n"
+					+ "viernes, algún palomino de añadidura los domingos, consumían las tres\r\n"
+					+ "partes de su hacienda. El resto della concluían sayo de velarte, calzas de\r\n"
+					+ "velludo para las fiestas, con sus pantuflos de lo mesmo, y los días de\r\n"
+					+ "entresemana se honraba con su vellorí de lo más fino. Tenía en su casa una\r\n"
+					+ "ama que pasaba de los cuarenta, y una sobrina que no llegaba a los veinte,\r\n"
+					+ "y un mozo de campo y plaza, que así ensillaba el rocín como tomaba la\r\n"
+					+ "podadera. Frisaba la edad de nuestro hidalgo con los cincuenta años; era de\r\n"
+					+ "complexión recia, seco de carnes, enjuto de rostro, gran madrugador y amigo\r\n"
+					+ "de la caza. Quieren decir que tenía el sobrenombre de Quijada, o Quesada,\r\n"
+					+ "que en esto hay alguna diferencia en los autores que deste caso escriben;\r\n"
+					+ "aunque, por conjeturas verosímiles, se deja entender que se llamaba\r\n"
+					+ "Quejana. Pero esto importa poco a nuestro cuento; basta que en la narración\r\n"
+					+ "dél no se salga un punto de la verdad.";
+			DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+			out.writeUTF("cifrar");
+			out.writeUTF("psp");
+			out.write(texto.getBytes());
+			socket.shutdownOutput();
+			assertEquals(texto, descifrar(new DataInputStream(socket.getInputStream())));
+		} catch (Exception e) {
+			fail(e.getLocalizedMessage());
+		}
+	}
+	
+	static String descifrar(DataInputStream in) throws Exception {
+		Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+		PrivateKey key = (PrivateKey) ks.getKey("psp", "practicas".toCharArray());
+		cipher.init(Cipher.DECRYPT_MODE, key);
+		byte [] descifrado = new byte[0];
+		while (true)
+			try {
+				String [] respuesta = in.readUTF().split(":");
+				if (respuesta.length != 2)
+					fail("respuesta incorrecta");
+				else if (respuesta[0].equals("OK")) {
+					byte[] cifrado = Base64.getDecoder().decode(respuesta[1]);
+					byte[] bloque = cipher.doFinal(cifrado);
+					descifrado = Arrays.copyOf(descifrado, descifrado.length + bloque.length);
+					System.arraycopy(bloque, 0, descifrado, descifrado.length - bloque.length, bloque.length);
+				} else if (!respuesta[0].equals("FIN") || !respuesta[1].equals("CIFRADO"))
+					fail("respuesta incorrecta");
+			} catch (EOFException e) {
+				break;
+			}
+		return new String(descifrado);
 	}
 	
 	@Test
